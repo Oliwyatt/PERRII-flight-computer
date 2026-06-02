@@ -1,0 +1,2 @@
+source /home/oliver-wyatt/projects/PERRII-flight-computer/build/gdbinit/symbols
+source /home/oliver-wyatt/projects/PERRII-flight-computer/build/gdbinit/connect

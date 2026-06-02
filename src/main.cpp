@@ -1,3 +1,4 @@
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -16,6 +17,7 @@ static const char* TAG = "MAIN";
 #define GPS_BUF_SIZE    1024
 
 QueueHandle_t telemetry_queue;
+QueueHandle_t logging_queue;
 
 
 void gps_task(void *pvParameters) {
@@ -35,6 +37,7 @@ void gps_task(void *pvParameters) {
     uint8_t data[GPS_BUF_SIZE];
     char line[128];
     int line_pos = 0;
+    telemetry_packet_t packet;
 
     while (1) {
         int len = uart_read_bytes(GPS_UART_NUM, data, GPS_BUF_SIZE - 1, pdMS_TO_TICKS(100));
@@ -54,15 +57,13 @@ void gps_task(void *pvParameters) {
                                 minmea_tocoord(&frame.latitude),
                                 minmea_tocoord(&frame.longitude),
                                 minmea_tofloat(&frame.speed));
-                        }
-                        break;
-                    }
-                    case MINMEA_SENTENCE_GGA: {
-                        struct minmea_sentence_gga frame;
-                        if (minmea_parse_gga(&frame, line)) {
-                            ESP_LOGI("GPS", "Altitude: %.2fm  Satellites: %d",
-                                minmea_tofloat(&frame.altitude),
-                                frame.satellites_tracked);
+                            memset(&packet, 0, sizeof(telemetry_packet_t));
+                            packet.type = PACKET_GPS;
+                            packet.timestamp = esp_log_timestamp();
+                            packet.data.gps.latitude  = minmea_tocoord(&frame.latitude);
+                            packet.data.gps.longitude = minmea_tocoord(&frame.longitude);
+                            packet.data.gps.speed     = minmea_tofloat(&frame.speed);
+                            xQueueSend(telemetry_queue, &packet, pdMS_TO_TICKS(100));
                         }
                         break;
                     }
@@ -79,8 +80,24 @@ void gps_task(void *pvParameters) {
     }
 }
 
+/*
+void logging_task(void *pvParameters) {
+    telemetry_packet_t packet;
+
+    while (1) {
+        if (xQueueReceive(logging_queue, &packet, portMAX_DELAY)) {
+            eeprom_write(&packet);
+
+            xQueueSend(radio_queue, &packet, pdMS_TO_TICKS(100));
+        }
+    }
+}
+*/
+
 void radio_task(void *pvParameters) {
     telemetry_packet_t packet;
+    lora_init();
+    lora_enable_crc();
 
     while (1) {
         // blocks here until something arrives in the queue
@@ -90,7 +107,6 @@ void radio_task(void *pvParameters) {
                     ESP_LOGI("RADIO", "Sending GPS: lat=%.6f lon=%.6f",
                         packet.data.gps.latitude,
                         packet.data.gps.longitude);
-                    // call radio transmit function here
                     break;
                 case PACKET_BARO:
                     ESP_LOGI("RADIO", "Sending Baro: alt=%.2fm",
@@ -113,6 +129,10 @@ void radio_task(void *pvParameters) {
                 default:
                     break;
             }
+            uint8_t buffer[sizeof(telemetry_packet_t)];
+            memcpy(buffer, &packet, sizeof(telemetry_packet_t));
+            lora_send_packet(buffer, sizeof(telemetry_packet_t));
+            memset(&packet, 0, sizeof(telemetry_packet_t));
         }
     }
 }
@@ -122,8 +142,10 @@ void barometer_task(void *pvParameters) {
 }
 
 extern "C" void app_main(void) {
+    logging_queue = xQueueCreate(20, sizeof(telemetry_packet_t));
     telemetry_queue = xQueueCreate(20, sizeof(telemetry_packet_t));
 
     xTaskCreate(gps_task, "gps_task", 4096, NULL, 5, NULL);
-    xTaskCreate(radio_task, "radio_task", 4096, NULL, 5, NULL);
+    //xTaskCreate(logging_task, "logging_task", 4096, NULL, 5, NULL);
+    xTaskCreate(radio_task, "radio_task", 4096, NULL, 4, NULL);
 }

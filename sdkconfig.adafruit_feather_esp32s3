@@ -3605,6 +3605,21 @@ CONFIG_WL_SECTOR_SIZE_4096=y
 # default:
 CONFIG_WL_SECTOR_SIZE=4096
 # end of Wear Levelling
+
+#
+# LoRa Configuration
+#
+# default:
+CONFIG_CS_GPIO=15
+# default:
+CONFIG_RST_GPIO=32
+# default:
+CONFIG_MISO_GPIO=13
+# default:
+CONFIG_MOSI_GPIO=12
+# default:
+CONFIG_SCK_GPIO=14
+# end of LoRa Configuration
 # end of Component config
 
 # default:
