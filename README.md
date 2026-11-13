@@ -1,1 +1,4 @@
 # PERRII-flight-computer
+The original concept for this was to create a working flight computer that communicated with a ground control station and would send packets back and forth keeping track of the flight data and making sure everything was still functional.
+I started coding this in C using ESP-IDF to get more experience in both technologies. Though after starting I realised it would be infeasable to get this done in time as a side project along with my studies at university, so I pivoted to creating a simple Arduino file to run the same thing, which while slightly less effecient, works the same and allows for the time constraints we were under.
+However, on the day of the flight, we ran into a problem of the flight computer board burning out. We then had to repurpose the ground station board as the flight computer and I had to re-adjust the code to suit this in the 2 hours we had before launch. So I have left the final code in this project as well.
